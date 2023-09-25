@@ -1,233 +1,257 @@
 #include "HugeInteger.h"
-#include <iostream>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string>
-#include <stdexcept>
-#include <algorithm>
-#include <boost/algorithm/string.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
 using namespace std;
 
 HugeInteger::HugeInteger(const std::string& val) {
-	if(val[0]=='-'){ //determining whether the first index has a negative sign
-		negative = '-'; //if it does then assign negative variable to '-'
-	}
-	else {
-		negative = '+'; //otherwise assigns negative variable to '-'
-	}
 
-	string valcopy = val[0] == '-' ? val.substr(1) : val; //checks if first index in valcopy has a negative sign
-		 //if it does then starts copying after the first index
+    if (val.empty()) {
+        throw std::invalid_argument("The input string is empty");
+    }
 
-	if (valcopy.empty()) { //checking if valcopy is an empty string
-	    throw std::invalid_argument("Invalid Input, cannot be an empty string"); //throws error message if it is
-	}
+    size_t index = 0;
 
-	for (char c : valcopy) { //for loop to go through each character c in valcopy string
-	    if (!std::isdigit(c)) { //check if the character c is not a digit
-	        throw std::invalid_argument("Invalid Input. Please enter a valid number"); //throws error message
-	    }
-	} //if all characters are digits, then nothing happens
+    if (val[0] == '-') { // Check if the number is negative
+        if (val.size() == 1) {
+            throw std::invalid_argument("The input string only contains a negative sign"); // Throw an exception if the string only contains a negative sign
+        }
+        negative = true; // Set the negative flag and increment the index
+        ++index;
+    }
 
-	HugeInt = new int[valcopy.size()]; //allocates memory for HugeInt array using new
+    for (; index < val.size(); ++index) {
+        if (val[index] >= '0' && val[index] <= '9') { // Check if the character is a digit
+            numvalue.push_back(val[index] - '0'); // Convert the digit to an integer and add it to the numvalue vector
+        }
+        else if (val[index] == '0') { // Check if the character is a zero
 
-	for(int i = 0; i < valcopy.size(); i++){
-		HugeInt[i] = valcopy[i] - '0'; //subtracting by 0 to get the integer value from the ASCII representation of the digits
-	}
-	sizeofarray = valcopy.size(); //setting sizeofarray to the array size of valcopy
-
+            if (numvalue.empty()) {
+                if (index == val.size() - 1) { // If the string only contains a single zero, set the zero flag and add the digit to the vector
+                    zero = true;
+                    negative = false;
+                    numvalue.push_back(0);
+                }
+            } else {
+                numvalue.push_back(0); // Otherwise, add the digit to the vector
+            }
+        }
+        else {
+            throw std::invalid_argument("The input string contains a non-numeric character");
+        }
+    }
 }
 
 HugeInteger::HugeInteger(int n) {
+    // Throw an exception if the input is zero or negative
+    if (n <= 0)
+        throw std::invalid_argument("Input cannot be negative or zero");
 
-	if(n < 1){ //first digit can't be less than 1
-		throw invalid_argument("Invalid Input. n must be larger or equal to 1"); //throws an error message
-	}
-
-	sizeofarray = n; //assign valid value of n to array size variable
-	HugeInt = new int[n]; //allocates memory for HugeInt array using new
-
-	//ensures first digit is not a zero and all other numbers are random between 0-9
-	HugeInt[0] = rand()%9 + 1; //changes the assigned numbers from 0-8 to 1-9
-	for(int i=1;i<n;i++){
-		HugeInt[i] = rand()%10;
-	}
-
+    // Generate n random numvalue and add them to the numvalue vector
+    for (int i = 0; i < n; i++)
+        numvalue.push_back(randDigit(10));
 }
 
-int HugeInteger::compare_array(const HugeInteger& h){
 
-	if (sizeofarray > h.sizeofarray)
-		return 1; //returns 1 if the first array is larger
-	if (sizeofarray < h.sizeofarray)
-		return -1; //returns -1 if the second array is larger
+HugeInteger::HugeInteger() {
 
-	for (int i = 0; i < sizeofarray; i++){ //size of arrays are the same
-	    if (HugeInt[i] > h.HugeInt[i])
-	    	return 1; //returns 1 if digits in first array are larger
-	    if (HugeInt[i] < h.HugeInt[i])
-	    	return -1; //returns -1 if digits in second array are larger
-	}
-
-	return 0; //returns 0 if both arrays are equal
-
+    negative = false; // Sets the negative flag to false, indicating that the HugeInteger is positive
+    zero = true; // Sets the zero flag to true, indicating that the HugeInteger is zero
+    numvalue.push_back(0); // Adds a single digit zero to the numvalue vector
 }
+
+bool HugeInteger::tenscomp(HugeInteger &h, int n) {
+
+    if (h.numvalue.size() == 1 && h.numvalue[0] == 0) { // If the HugeInteger has only one digit and it is zero, insert n zeros and return false
+        insertZero(h, n); // Inserts n zeros at the beginning of the HugeInteger
+        return false;
+    }
+
+    insertZero(h, n); // Inserts n zeros at the beginning of the HugeInteger
+    bool overflow = true; // Flag to indicate if there was a carry during the computation
+
+    for (int i = h.numvalue.size()-1; i >=0; i--) { // Loops through the numvalue of the HugeInteger from right to left
+        h.numvalue[i] = (9 - h.numvalue[i] + overflow) % 10; // Computes the 10's complement of the current digit and updates the digit
+        overflow = (9 - h.numvalue[i] + overflow) / 10;// Updates the overflow flag for the next digit
+    }
+
+    return true;
+}
+
+// Inserts zeros at the beginning of the HugeInteger to make it have at least n numvalue
+void HugeInteger::insertZero(HugeInteger& h, int &n) {
+
+    for (int i = h.numvalue.size(); i < n; i++) {
+        h.numvalue.insert(h.numvalue.begin(), 0);
+    }
+}
+
+// Removes any leading zeros from the numvalue vector of the HugeInteger
+bool HugeInteger::removeZero() {
+
+    while ((!numvalue.empty()) && (*numvalue.begin() == 0))
+        numvalue.erase(numvalue.begin());
+    bool zero = numvalue.empty();
+    if (zero) numvalue.push_back(0);
+    return zero;
+}
+
+
+// Returns a new HugeInteger that is the original HugeInteger shifted n numvalue to the left
+HugeInteger HugeInteger::shift(const int& n) {
+
+    if (n <= 0) return *this; // If n is less than or equal to zero, returns the original HugeInteger
+    HugeInteger ans = *this;
+    for (int i = 0; i < n; i++)
+        ans.numvalue.push_back(0); // Adds n zeros to the end of the numvalue vector of the new HugeInteger
+    return ans;
+}
+
 
 HugeInteger HugeInteger::add(const HugeInteger& h) {
-	int *big; //used to store the contents of the bigger array
-	int *sum; //used to store sum of the 2 integers in an array
-	int bigSize; //array storing the bigger size array
-	int sumArray; //array storing solution to sum of integers
 
-	int carry = 0; //holds the carry value for addition
-
-	//holding size of both arrays, -1 as this is an index and counting starts from 0
-	int size_HugeInt = sizeofarray - 1;
-	int size_h = h.sizeofarray - 1;
-
-	string num_sign = ""; //determines sign of the number
-	string math_sign = ""; //used to determine if the operation is addition or subtraction
-
-	//both arrays are equal or digits in first array are larger
-	if(compare_array(h) >= 0){
-		//case 1: 1st term is -ve and 2nd is +ve
-		if(negative == "-" && h.negative == "+" && math_sign == ""){
-			math_sign = "-"; //subtracting first number from second using subtract method
-			return subtract(h);
-		}
-		//case 2: 1st term is +ve and 2nd is -ve
-		if (negative == "+" && h.negative == "-" && math_sign == ""){
-			math_sign = "-"; //
-			return subtract(h);
-		}
-
-		sum = (int*)calloc((size_HugeInt + 2),sizeof(int)); //allocating memory for 'size_HugeInt + 2'
-		sumArray = size_HugeInt;	//Store size of HugeInt array into sumArray
-		big = HugeInt; //points big pointer to the HugeInt array
-		bigSize = sizeofarray; //sets bigSize variable to the size of HugeInt array
-		if (math_sign == ""){ // if math_sign is empty,set num_sign to current value of negative
-			num_sign = negative;
-		}
-		else{ //otherwise set to math_sign.
-			num_sign = math_sign;
-		}
-
+	const int num1 = numvalue.size(), num2 = h.numvalue.size(); // Get the size of the two integers
+	if (num1 == 0 || num2 == 0) {
+		throw std::invalid_argument("adding NULL is not allowed");
 	}
 
-	//digits in 2nd array are larger
-	else {
-		if (negative == "-" && h.negative == "+" && math_sign == ""){
-			math_sign = "+";
-			return subtract(h);
-		} if (negative == "+" && h.negative == "-" && math_sign == ""){
-			math_sign = "-";
-			return subtract(h);
-		}
-		sum = new int[size_h + 2];
-		for (int i = 0; i < size_h + 2; i++){ //initializing each element in array to zero
-		    sum[i] = 0;
-		}
-		sumArray = size_h;
-		big = h.HugeInt;
-		bigSize = h.sizeofarray;
-		if(math_sign == ""){
-			num_sign = h.negative;
+	// Create copies of this HugeInteger object and the argument HugeInteger object
+	HugeInteger num1copy = *this;
+	HugeInteger num2copy = h;
+
+	// Check if either of the HugeInteger objects is zero
+	const bool thisIsZero = this->zero;
+	const bool otherIsZero = h.zero;
+	if (thisIsZero || otherIsZero) {
+		return (thisIsZero) ? num2copy : num1copy;
+	}
+
+	// Ensure that both HugeInteger objects have the same number of numvalue
+	num1copy.numvalue.resize(num2, 0);
+	num2copy.numvalue.resize(num1, 0);
+
+//	insertZero(num2copy, num1);
+//	insertZero(num1copy, num2);
+
+	const bool needsComplement = negative != (h.negative); // Check if 10's complement notation needs to be used
+
+	if (needsComplement) { //only used if signs are different
+		if (this->negative) {
+			tenscomp(num1copy, num2);
 		}
 		else {
-			num_sign = math_sign;
+			tenscomp(num2copy, num1);
 		}
 	}
 
-	while(size_HugeInt >= 0 && size_h >= 0){
-		//adding both arrays to their corresponding indices with the carry
-		sum[sumArray+1] = HugeInt[size_HugeInt] + h.HugeInt[size_h] + carry;
-		if(sum[sumArray+1] > 9){ //implementing logical math carry
-			carry = 1;
+	bool carry = false;
+	int sum = 0;
+	const int maxIndex = (num1 >= num2) ? num1 - 1 : num2 - 1;
+
+	// Add the numvalue of the HugeInteger objects starting from the least significant digit
+	for (int i = maxIndex; i >= 0; --i) {
+		sum = num1copy.numvalue[i] + num2copy.numvalue[i] + carry;
+		num1copy.numvalue[i] = sum % 10;
+		carry = sum / 10;
+	}
+
+	if (needsComplement) {
+		if (carry) {
+			num1copy.negative = !num1copy.zero;
 		}
 		else {
-			carry = 0;
+			tenscomp(num1copy, num1);
+			num1copy.zero = num1copy.removeZero();
+			num1copy.negative = !num1copy.zero;
 		}
-		sum[sumArray+1] = sum[sumArray+1]%10; //puts the ones digit into the index
 
-		//cycling through the indices
-		size_HugeInt--;
-		size_h--;
-		sumArray--;
+		return num1copy;
 	}
 
-	//if there is an array that has more digits than the other
-	for(sumArray; sumArray>=0;sumArray--){
-		sum[sumArray + 1] = big[sumArray] + carry;
-		//resetting carryover every loop
-		if(sum[sumArray+1] > 9){
-			carry = 1;
-		}
-		else {
-			carry = 0;
-		}
-		sum[sumArray+1] = sum[sumArray+1]%10;
-
+	// If there is carry, add it to the beginning of the numvalue vector
+	if (carry) {
+		num1copy.numvalue.insert(num1copy.numvalue.begin(), carry);
 	}
 
+	num1copy.zero = num1copy.removeZero(); // Remove leading zeroes
 
-	sum[0] = carry; // first index in sum array is the last carryover
-	string solution = ""; //empty string for final solution
-
-	if(num_sign == "-") //checking if the sign was negative
-		solution += '-'; //add a negative sign to the solution
-
-	for(int i = 0; i < bigSize + 1; i++){
-		if(i!=0 || (i == 0 && sum[0] != 0)){ //make sure i isn't 0, or if i is equal to 0, then carry is not equal to 0.
-			solution += ((char)(sum[i] + '0')); //converts integer stored in sum[i] to a character by adding ASCII value of 0
-			//appended to solution string
-		}
-	}
-	return HugeInteger(solution); // Return HugeInteger object
+	return num1copy;
 }
-
-
 
 HugeInteger HugeInteger::subtract(const HugeInteger& h) {
-	// TODO
-	return HugeInteger("");
+
+	negative = !negative; // toggle the sign of this HugeInteger object
+	HugeInteger ans = add(h); // add the other HugeInteger object to this HugeInteger object
+	negative = !negative; // toggle the sign of this HugeInteger object back to its original sign
+	ans.negative = ans.zero ? false : !(ans.negative); // toggle the sign of the answer HugeInteger object if it is not zero
+	return ans;
+
 }
-
-
-
 
 HugeInteger HugeInteger::multiply(const HugeInteger& h) {
-	// TODO
-	return HugeInteger("");
+
+	if (this->zero || h.zero) { // check if either of the HugeIntegers is zero
+		return HugeInteger("0");
+	}
+
+	HugeInteger result;
+	for (int i = h.numvalue.size() - 1; i >= 0; i--) // Iterate through the numvalue of the second HugeInteger object from right to left
+	{
+		int currentDigit = h.numvalue.at(i);
+		// Add this HugeInteger object to the result the number of times indicated by the current digit
+		for (int j = 0; j < currentDigit; j++)
+		{
+			result = result.add(*this);
+		}
+		this->shift(1); // Shift this HugeInteger object to the left by one digit
+	}
+
+	result.negative = this->negative != h.negative; // Determine the sign of the result HugeInteger object
+
+	return result;
 }
 
+
 int HugeInteger::compareTo(const HugeInteger& h) {
-	// TODO
-	return 0;
+
+    if (negative != h.negative) { // Check if the two HugeInteger objects have different signs
+        return (negative == true) ? -1 : 1; // return -1 if this HugeInteger object is negative
+    }
+
+    if (numvalue.size() > h.numvalue.size()) {
+        return (negative ? -1 : 1); //return -1 if numvalue is negative
+
+    } else if (numvalue.size() < h.numvalue.size()) {
+
+        return (negative ? 1 : -1); //return -1 if h.numvalue is negative
+    }
+
+    for (int i = 0; i < numvalue.size(); i++) { //if they have same length, compare respective numvalues
+
+        if (numvalue.at(i) > h.numvalue.at(i)) {
+            return negative ? -1 : 1; //return -1 if numvalue is negative
+
+        } else if (numvalue.at(i) < h.numvalue.at(i)) {
+
+            return negative ? 1 : -1; //return -1 if h.numvalue is negative
+        }
+    }
+
+    return 0; // If the two HugeInteger objects are equal, return 0
 }
 
 
 std::string HugeInteger::toString() {
-	bool zero = false;
-	string stringsol; //string holding the final solution string
 
-	if(negative == "-"){
-		stringsol += "-"; //if originally HugeInteger was a negative number, add a negative sign to the string
-	}
-
-		for(int i = 0; i < sizeofarray; i++){
-		if(HugeInt[i] != 0 || zero){
-			stringsol += to_string(HugeInt[i]);
-			zero=true;
-		}
-	}
-
-	if(stringsol == "-" || stringsol.empty() || stringsol == "0") { //returning 0 if the string is negative, empty or zero
+	if (numvalue.empty()) {
 		return "0";
 	}
-	else {
-		return stringsol;
-	}
-}
 
+	std::string bigNum = negative ? "-" : ""; //Initialize an empty string "bigNum" to hold the final output, and add a negative sign if the number is negative
+	std::vector<int>::iterator it; //Define an iterator "it" to traverse the "numvalue" vector
+
+	//Iterate through the "numvalue" vector and append each digit to "bigNum"
+	for (it = numvalue.begin(); it != numvalue.end(); it++) {
+		bigNum += std::to_string(*it);
+	}
+
+	return bigNum;
+}
 

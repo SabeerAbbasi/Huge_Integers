@@ -1,35 +1,40 @@
-
 #ifndef HUGEINTEGER_H_
 #define HUGEINTEGER_H_
 #include <iostream>
+#include <vector>
+#include <string>
+#include <cstdlib>
+#include <ctime>
 
 class HugeInteger
 {
 private:
-	int* HugeInt;  //integer for the huge integer class
+	std::vector <int> numvalue;
+	bool negative = false;
+	bool zero = false;
+	int randDigit(int base){
+		srand(time(0));
+		return  rand()%base;
+	};
+
+	bool removeZero();
+	void insertZero(HugeInteger& h, int& n);
+	bool tenscomp(HugeInteger& h, int n);
 
 public:
-	// Variables
-		std::string negative;
-		int sizeofarray;
-		std::string math_sign;
-
-		bool removeZero();							// removes all leading zeros and returns true if the resultant number is zero
-		void insertZero(HugeInteger& h, int& n);
-		bool tenComplement(HugeInteger& h, int n);	//added
-
-	// Required methods
+	HugeInteger();
 	HugeInteger(const std::string& val);
 	HugeInteger(int n);
-	int compare_array(const HugeInteger& h);
 	HugeInteger add(const HugeInteger& h);
 	HugeInteger subtract(const HugeInteger& h);
 	HugeInteger multiply(const HugeInteger& h);
 	int compareTo(const HugeInteger& h);
+	HugeInteger shift(const int& n);
 	std::string toString();
 };
 
 #endif /* HUGEINTEGER_H_ */
+
 
 
 
